@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отладка формы</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .logs {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .validation-result {
+            font-weight: bold;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Отладка формы отправки заявки</h1>
+    
+    <form id="debugForm">
+        <div class="form-group">
+            <label for="name">Имя:</label>
+            <input type="text" id="name" name="name" value="Тестовый Пользователь">
+        </div>
+        <div class="form-group">
+            <label for="phone">Телефон:</label>
+            <input type="tel" id="phone" name="phone" value="+7 (900) 123-45-67">
+        </div>
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" value="test@example.com">
+        </div>
+        <div class="form-group">
+            <label for="message">Сообщение:</label>
+            <textarea id="message" name="message" rows="4">Тестовое сообщение для отладки формы</textarea>
+        </div>
+        <button type="submit">Отправить заявку</button>
+    </form>
+
+    <h2>Логи выполнения:</h2>
+    <div id="logs" class="logs"></div>
+    
+    <script>
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const logItem = document.createElement('div');
+            logItem.className = type;
+            logItem.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsDiv.appendChild(logItem);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        document.getElementById('debugForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            log('Форма отправлена, начинаем обработку...');
+            
+            const form = e.target;
+            
+            // Получаем данные формы
+            const formData = {
+                name: form.name.value.trim(),
+                phone: form.phone.value.trim(),
+                email: form.email.value.trim(),
+                message: form.message.value.trim()
+            };
+
+            log(`Данные формы: ${JSON.stringify(formData)}`);
+
+            // Валидация данных
+            let isValid = true;
+            
+            if (!formData.name || formData.name.trim().length < 2) {
+                log('Ошибка валидации: имя должно содержать минимум 2 символа', 'error');
+                isValid = false;
+            } else {
+                log('Валидация имени: ОК', 'success');
+            }
+
+            // Валидация email
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(formData.email)) {
+                log('Ошибка валидации: неверный email', 'error');
+                isValid = false;
+            } else {
+                log('Валидация email: ОК', 'success');
+            }
+
+            // Валидация телефона
+            // 1. Стандартный регекс из main.js
+            const phoneRegex = /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/;
+            const phoneValid = phoneRegex.test(formData.phone);
+            log(`Валидация телефона (стандартный регекс): ${phoneValid ? 'ПРОШЛА' : 'НЕ ПРОШЛА'}`, phoneValid ? 'success' : 'error');
+            
+            // 2. Упрощенный регекс - только цифры и некоторые символы
+            const simplePhoneRegex = /^[+0-9()\-\s\.]{10,20}$/;
+            const simplePhoneValid = simplePhoneRegex.test(formData.phone);
+            log(`Валидация телефона (упрощенный регекс): ${simplePhoneValid ? 'ПРОШЛА' : 'НЕ ПРОШЛА'}`, simplePhoneValid ? 'success' : 'error');
+            
+            // 3. Очищенный телефон - только цифры
+            const cleanPhone = formData.phone.replace(/\D/g, '');
+            log(`Очищенный телефон (только цифры): ${cleanPhone}`);
+            log(`Длина очищенного телефона: ${cleanPhone.length} цифр`);
+            
+            if (!phoneValid) {
+                log('Ошибка валидации: телефон не соответствует формату', 'error');
+                isValid = false;
+            }
+
+            if (!formData.message || formData.message.trim().length < 10) {
+                log('Ошибка валидации: сообщение должно содержать минимум 10 символов', 'error');
+                isValid = false;
+            } else {
+                log('Валидация сообщения: ОК', 'success');
+            }
+
+            if (!isValid) {
+                log('Валидация не пройдена, отправка отменена', 'error');
+                return;
+            }
+
+            log('Валидация пройдена успешно, отправляем данные на сервер...', 'success');
+            
+            try {
+                log('Начинаем отправку данных на сервер...');
+                
+                // Отправляем данные на сервер
+                const response = await fetch('/api/submit-form', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                log(`Ответ от сервера получен: ${response.status} ${response.statusText}`);
+                
+                const result = await response.json();
+                log(`Данные ответа: ${JSON.stringify(result)}`);
+                
+                if (result.success) {
+                    log('Заявка успешно отправлена!', 'success');
+                } else {
+                    log(`Ошибка: ${result.message || 'Неизвестная ошибка'}`, 'error');
+                }
+            } catch (error) {
+                log(`Ошибка при отправке: ${error.message}`, 'error');
+            }
+        });
+    </script>
+</body>
+</html> 
